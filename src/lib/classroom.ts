@@ -1,9 +1,8 @@
 // Google Classroom API integration with OAuth2
-import { Course, Assignment, Student, Teacher } from '@/types/classroom';
+import { Course, Assignment, Student, Teacher, StudentSubmission } from '@/types/classroom';
 
 // OAuth2 Configuration
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
-const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const CLASSROOM_API_BASE = 'https://classroom.googleapis.com/v1';
 
 // Required scopes for Google Classroom and user profile
@@ -14,6 +13,7 @@ const SCOPES = [
   'https://www.googleapis.com/auth/classroom.profile.emails',
   'https://www.googleapis.com/auth/classroom.profile.photos',
   'https://www.googleapis.com/auth/classroom.coursework.me.readonly',
+  'https://www.googleapis.com/auth/classroom.student-submissions.students.readonly',
   'https://www.googleapis.com/auth/userinfo.profile',
   'https://www.googleapis.com/auth/userinfo.email',
   'openid'
@@ -45,6 +45,11 @@ interface StudentsResponse {
 
 interface TeachersResponse {
   teachers?: Teacher[];
+  nextPageToken?: string;
+}
+
+interface SubmissionsResponse {
+  studentSubmissions?: StudentSubmission[];
   nextPageToken?: string;
 }
 
@@ -253,6 +258,66 @@ export async function getCourseTeachers(
 }
 
 /**
+ * Gets all student submissions for a specific assignment
+ */
+export async function getAssignmentSubmissions(
+  courseId: string,
+  courseWorkId: string,
+  accessToken: string
+): Promise<StudentSubmission[]> {
+  const submissions: StudentSubmission[] = [];
+  let nextPageToken: string | undefined;
+
+  do {
+    const params: Record<string, string> = {
+      pageSize: '100'
+    };
+
+    if (nextPageToken) {
+      params.pageToken = nextPageToken;
+    }
+
+    const response = await makeClassroomRequest<SubmissionsResponse>(
+      `/courses/${courseId}/courseWork/${courseWorkId}/studentSubmissions`,
+      accessToken,
+      params
+    );
+
+    if (response.studentSubmissions) {
+      submissions.push(...response.studentSubmissions);
+    }
+
+    nextPageToken = response.nextPageToken;
+  } while (nextPageToken);
+
+  return submissions;
+}
+
+/**
+ * Gets all submissions for a specific student across all assignments in a course
+ */
+export async function getStudentSubmissions(
+  courseId: string,
+  userId: string,
+  accessToken: string
+): Promise<StudentSubmission[]> {
+  const assignments = await getCourseAssignments(courseId, accessToken);
+  const allSubmissions: StudentSubmission[] = [];
+
+  for (const assignment of assignments) {
+    try {
+      const submissions = await getAssignmentSubmissions(courseId, assignment.id, accessToken);
+      const studentSubmissions = submissions.filter(sub => sub.userId === userId);
+      allSubmissions.push(...studentSubmissions);
+    } catch (error) {
+      console.warn(`Failed to get submissions for assignment ${assignment.id}:`, error);
+    }
+  }
+
+  return allSubmissions;
+}
+
+/**
  * Gets complete course data including assignments, students, and teachers
  */
 export async function getCompleteCourseData(
@@ -274,6 +339,105 @@ export async function getCompleteCourseData(
     students,
     teachers
   };
+}
+
+/**
+ * Calculates progress statistics for a student in a course
+ */
+export async function getStudentProgress(
+  courseId: string,
+  userId: string,
+  accessToken: string
+) {
+  try {
+    const [assignments, submissions] = await Promise.all([
+      getCourseAssignments(courseId, accessToken),
+      getStudentSubmissions(courseId, userId, accessToken)
+    ]);
+
+    const totalAssignments = assignments.length;
+    const submittedCount = submissions.filter(sub => 
+      sub.state === 'TURNED_IN' || sub.state === 'RETURNED'
+    ).length;
+    const gradedCount = submissions.filter(sub => 
+      sub.assignedGrade !== undefined && sub.assignedGrade !== null
+    ).length;
+    const lateCount = submissions.filter(sub => sub.late).length;
+
+    // Calculate average grade
+    const gradedSubmissions = submissions.filter(sub => 
+      sub.assignedGrade !== undefined && sub.assignedGrade !== null
+    );
+    const averageGrade = gradedSubmissions.length > 0 
+      ? gradedSubmissions.reduce((sum, sub) => sum + (sub.assignedGrade || 0), 0) / gradedSubmissions.length
+      : 0;
+
+    // Calculate completion percentage
+    const completionPercentage = totalAssignments > 0 
+      ? (submittedCount / totalAssignments) * 100 
+      : 0;
+
+    return {
+      success: true,
+      data: {
+        totalAssignments,
+        submittedCount,
+        gradedCount,
+        lateCount,
+        averageGrade: Math.round(averageGrade * 100) / 100,
+        completionPercentage: Math.round(completionPercentage * 100) / 100,
+        submissions: submissions.map(sub => ({
+          ...sub,
+          assignmentTitle: assignments.find(a => a.id === sub.courseWorkId)?.title || 'Unknown Assignment'
+        }))
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
+/**
+ * Gets progress overview for all students in a course (teacher view)
+ */
+export async function getCourseProgress(
+  courseId: string,
+  accessToken: string
+) {
+  try {
+    const [assignments, students] = await Promise.all([
+      getCourseAssignments(courseId, accessToken),
+      getCourseStudents(courseId, accessToken)
+    ]);
+
+    const studentProgress = await Promise.all(
+      students.map(async (student) => {
+        const progress = await getStudentProgress(courseId, student.userId, accessToken);
+        return {
+          student: student.profile,
+          progress: progress.success ? progress.data : null
+        };
+      })
+    );
+
+    return {
+      success: true,
+      data: {
+        courseId,
+        totalAssignments: assignments.length,
+        totalStudents: students.length,
+        studentProgress: studentProgress.filter(sp => sp.progress !== null)
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
 }
 
 /**

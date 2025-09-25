@@ -179,3 +179,50 @@ export interface ErrorBoundaryState {
   error?: Error;
   errorInfo?: React.ErrorInfo;
 }
+
+// Progress and Grades types
+export interface StudentProgress {
+  totalAssignments: number;
+  submittedCount: number;
+  gradedCount: number;
+  lateCount: number;
+  averageGrade: number;
+  completionPercentage: number;
+  submissions: SubmissionWithTitle[];
+}
+
+export interface SubmissionWithTitle {
+  courseId: string;
+  courseWorkId: string;
+  id: string;
+  userId: string;
+  creationTime: string;
+  updateTime: string;
+  state: 'SUBMISSION_STATE_UNSPECIFIED' | 'NEW' | 'CREATED' | 'TURNED_IN' | 'RETURNED' | 'RECLAIMED_BY_STUDENT';
+  late?: boolean;
+  draftGrade?: number;
+  assignedGrade?: number;
+  alternateLink: string;
+  assignmentTitle: string;
+}
+
+export interface CourseProgress {
+  courseId: string;
+  totalAssignments: number;
+  totalStudents: number;
+  studentProgress: StudentProgressItem[];
+}
+
+export interface StudentProgressItem {
+  student: {
+    id: string;
+    name: {
+      givenName?: string;
+      familyName?: string;
+      fullName?: string;
+    };
+    emailAddress: string;
+    photoUrl?: string;
+  };
+  progress: StudentProgress | null;
+}

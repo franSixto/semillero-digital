@@ -4,12 +4,13 @@ import Link from 'next/link';
 import { ThemeToggle } from './theme-toggle';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 
 export function Header() {
   const { user, logout } = useAuth();
   
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky flex flex-row justify-center items-center top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 max-w-screen-2xl items-center">
         <div className="mr-4 hidden md:flex">
           <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
@@ -35,6 +36,12 @@ export function Header() {
               Tareas
             </Link>
             <Link
+              href="/progress"
+              className="transition-colors hover:text-foreground/80 text-foreground/60"
+            >
+              Mi Progreso
+            </Link>
+            <Link
               href="/grades"
               className="transition-colors hover:text-foreground/80 text-foreground/60"
             >
@@ -52,12 +59,20 @@ export function Header() {
             {user && (
               <>
                 <div className="flex items-center gap-2">
-                  {user.picture && (
-                    <img 
+                  {user.picture ? (
+                    <Image 
                       src={user.picture} 
                       alt={user.name}
-                      className="w-8 h-8 rounded-full"
+                      className="w-8 h-8 rounded-full object-cover"
+                      width={32}
+                      height={32}
                     />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-xs font-medium text-primary">
+                        {user.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
                   )}
                   <span className="text-sm font-medium">{user.name}</span>
                 </div>
