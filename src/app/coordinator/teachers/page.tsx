@@ -9,8 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AppLayout } from '@/components/layout/app-layout';
 import { useAuth } from '@/contexts/auth-context';
 import { useRole } from '@/contexts/role-context';
-import { getTeachersManagement, assignStudentToTeacher, removeStudentFromTeacher } from '@/lib/classroom';
-import { Users, UserPlus, UserMinus, Search, Filter, BookOpen } from 'lucide-react';
+import { getTeachersManagement, assignStudentToTeacher, removeStudentFromTeacher, getAssignmentRecommendations, autoAssignStudents } from '@/lib/classroom';
+import { Users, UserPlus, UserMinus, Search, Filter, BookOpen, Lightbulb, AlertTriangle } from 'lucide-react';
 
 interface TeacherManagement {
   teacherId: string;
@@ -46,6 +46,21 @@ interface TeachersManagementData {
   totalUnassigned: number;
 }
 
+interface AssignmentRecommendation {
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  commissionName: string;
+  recommendedTeachers: Array<{
+    teacherId: string;
+    teacherName: string;
+    teacherEmail: string;
+    reason: string;
+    currentLoad: number;
+    sharedCourses: string[];
+  }>;
+}
+
 export default function CoordinatorTeachersPage() {
   const { accessToken } = useAuth();
   const { currentRole } = useRole();
@@ -54,7 +69,9 @@ export default function CoordinatorTeachersPage() {
   const [error, setError] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [selectedTeacher, setSelectedTeacher] = useState<string>('');
+  const [selectedTeachers, setSelectedTeachers] = useState<Record<string, string>>({});
+  const [showRecommendations, setShowRecommendations] = useState(false);
+  const [recommendations, setRecommendations] = useState<AssignmentRecommendation[]>([]);
 
   // Redirect if not coordinator
   useEffect(() => {
@@ -92,7 +109,12 @@ export default function CoordinatorTeachersPage() {
     try {
       const result = await assignStudentToTeacher(studentId, teacherId, accessToken!);
       if (result.success) {
-        await loadTeachersData(); // Reload data
+        await loadTeachersData(); // Reload data to show new assignment
+        setSelectedTeachers(prev => {
+          const newState = { ...prev };
+          delete newState[studentId];
+          return newState;
+        });
       } else {
         setError(result.error || 'Error assigning student');
       }
@@ -106,12 +128,45 @@ export default function CoordinatorTeachersPage() {
     try {
       const result = await removeStudentFromTeacher(studentId, teacherId, accessToken!);
       if (result.success) {
-        await loadTeachersData(); // Reload data
+        await loadTeachersData(); // Reload data to show removal
       } else {
         setError(result.error || 'Error removing student');
       }
     } catch (err) {
       setError('Error removing student');
+      console.error('Error:', err);
+    }
+  };
+
+  const handleAutoAssign = async () => {
+    try {
+      setLoading(true);
+      const result = await autoAssignStudents(accessToken!);
+      if (result.success && result.assignments) {
+        console.log('Auto-assignment completed:', result.assignments);
+        await loadTeachersData(); // Reload data to show new assignments
+      } else {
+        setError(result.error || 'Error in auto-assignment');
+      }
+    } catch (err) {
+      setError('Error in auto-assignment');
+      console.error('Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadRecommendations = async () => {
+    try {
+      const result = await getAssignmentRecommendations(accessToken!);
+      if (result.success && result.data) {
+        setRecommendations(result.data);
+        setShowRecommendations(true);
+      } else {
+        setError(result.error || 'Error loading recommendations');
+      }
+    } catch (err) {
+      setError('Error loading recommendations');
       console.error('Error:', err);
     }
   };
@@ -128,7 +183,7 @@ export default function CoordinatorTeachersPage() {
     return matchesSearch && matchesFilter;
   }) || [];
 
-  // Filter unassigned students
+  // Filter unassigned students based on search
   const filteredUnassignedStudents = data?.unassignedStudents?.filter(student =>
     student.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.studentEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -142,7 +197,7 @@ export default function CoordinatorTeachersPage() {
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Cargando gestión de profesores...</p>
+              <p className="text-muted-foreground">Cargando profesores...</p>
             </div>
           </div>
         </div>
@@ -203,7 +258,7 @@ export default function CoordinatorTeachersPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground">{data.totalTeachers}</div>
-              <p className="text-xs text-muted-foreground">Activos en el sistema</p>
+              <p className="text-xs text-muted-foreground">En el semillero</p>
             </CardContent>
           </Card>
 
@@ -212,8 +267,8 @@ export default function CoordinatorTeachersPage() {
               <CardTitle className="text-sm font-medium">Estudiantes Asignados</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">{data.totalStudents - data.totalUnassigned}</div>
-              <p className="text-xs text-muted-foreground">Con profesor asignado</p>
+              <div className="text-2xl font-bold text-primary">{data.totalStudents - data.totalUnassigned}</div>
+              <p className="text-xs text-muted-foreground">Con seguimiento</p>
             </CardContent>
           </Card>
 
@@ -238,7 +293,7 @@ export default function CoordinatorTeachersPage() {
               <CardTitle className="text-sm font-medium">Total Estudiantes</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{data.totalStudents}</div>
+              <div className="text-2xl font-bold text-foreground">{data.totalStudents}</div>
               <p className="text-xs text-muted-foreground">En el semillero</p>
             </CardContent>
           </Card>
@@ -267,7 +322,7 @@ export default function CoordinatorTeachersPage() {
               </div>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-full md:w-[200px]">
-                  <SelectValue placeholder="Filtrar por estado" />
+                  <SelectValue placeholder="Estado" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los profesores</SelectItem>
@@ -283,13 +338,36 @@ export default function CoordinatorTeachersPage() {
         {data.totalUnassigned > 0 && (
           <Card className="border-orange-500/50 bg-orange-500/5">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-orange-700 dark:text-orange-400">
-                <UserPlus className="h-5 w-5" />
-                Estudiantes Sin Asignar ({data.totalUnassigned})
-              </CardTitle>
-              <CardDescription>
-                Estos estudiantes necesitan ser asignados a un profesor para su seguimiento
-              </CardDescription>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-orange-700 dark:text-orange-400">
+                    <AlertTriangle className="h-5 w-5" />
+                    Estudiantes Sin Asignar ({data.totalUnassigned})
+                  </CardTitle>
+                  <CardDescription>
+                    Estos estudiantes necesitan ser asignados a un profesor para seguimiento personalizado
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button 
+                    variant="outline"
+                    onClick={loadRecommendations}
+                    disabled={loading || filteredUnassignedStudents.length === 0}
+                    className="flex-1 sm:flex-none"
+                  >
+                    <Lightbulb className="h-4 w-4 mr-2" />
+                    Ver Recomendaciones
+                  </Button>
+                  <Button 
+                    onClick={handleAutoAssign}
+                    disabled={loading || filteredUnassignedStudents.length === 0}
+                    className="flex-1 sm:flex-none"
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Auto-Asignar Todos
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -307,8 +385,11 @@ export default function CoordinatorTeachersPage() {
                         
                         <div className="flex gap-2">
                           <Select 
-                            value={selectedTeacher} 
-                            onValueChange={setSelectedTeacher}
+                            value={selectedTeachers[student.studentId] || ''} 
+                            onValueChange={(value) => setSelectedTeachers(prev => ({
+                              ...prev,
+                              [student.studentId]: value
+                            }))}
                           >
                             <SelectTrigger className="flex-1">
                               <SelectValue placeholder="Seleccionar profesor" />
@@ -324,12 +405,12 @@ export default function CoordinatorTeachersPage() {
                           <Button 
                             size="sm"
                             onClick={() => {
-                              if (selectedTeacher) {
-                                handleAssignStudent(student.studentId, selectedTeacher);
-                                setSelectedTeacher('');
+                              const teacherId = selectedTeachers[student.studentId];
+                              if (teacherId) {
+                                handleAssignStudent(student.studentId, teacherId);
                               }
                             }}
-                            disabled={!selectedTeacher}
+                            disabled={!selectedTeachers[student.studentId]}
                           >
                             Asignar
                           </Button>
@@ -337,6 +418,58 @@ export default function CoordinatorTeachersPage() {
                       </div>
                     </CardContent>
                   </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Recommendations Section */}
+        {showRecommendations && recommendations.length > 0 && (
+          <Card className="border-blue-500/50 bg-blue-500/5">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                  <Lightbulb className="h-5 w-5" />
+                  Recomendaciones Inteligentes
+                </CardTitle>
+                <Button variant="outline" size="sm" onClick={() => setShowRecommendations(false)}>
+                  Cerrar
+                </Button>
+              </div>
+              <CardDescription>
+                Asignaciones sugeridas basadas en especialización y carga de trabajo
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {recommendations.map((rec) => (
+                  <div key={rec.studentId} className="p-4 bg-card rounded-lg border">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h4 className="font-medium">{rec.studentName}</h4>
+                        <p className="text-sm text-muted-foreground">{rec.commissionName}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Profesores recomendados:</p>
+                      {rec.recommendedTeachers.slice(0, 3).map((teacher, index) => (
+                        <div key={teacher.teacherId} className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                          <div>
+                            <p className="font-medium text-sm">{teacher.teacherName}</p>
+                            <p className="text-xs text-muted-foreground">{teacher.reason}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant={index === 0 ? "default" : "outline"}
+                            onClick={() => handleAssignStudent(rec.studentId, teacher.teacherId)}
+                          >
+                            Asignar
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </CardContent>
@@ -351,33 +484,33 @@ export default function CoordinatorTeachersPage() {
               Profesores ({filteredTeachers.length})
             </CardTitle>
             <CardDescription>
-              Gestiona las asignaciones de estudiantes a cada profesor
+              Lista de profesores con sus estudiantes asignados
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
               {filteredTeachers.map((teacher) => (
                 <Card key={teacher.teacherId} className="bg-card border-border">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                          {teacher.teacherAvatar ? (
-                            <img 
-                              src={teacher.teacherAvatar} 
-                              alt={teacher.teacherName}
-                              className="h-12 w-12 rounded-full object-cover"
-                            />
-                          ) : (
+                        {teacher.teacherAvatar ? (
+                          <img 
+                            src={teacher.teacherAvatar} 
+                            alt={teacher.teacherName}
+                            className="w-12 h-12 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                             <Users className="h-6 w-6 text-primary" />
-                          )}
-                        </div>
+                          </div>
+                        )}
                         <div>
                           <h3 className="font-semibold text-foreground">{teacher.teacherName}</h3>
                           <p className="text-sm text-muted-foreground">{teacher.teacherEmail}</p>
-                          <div className="flex gap-2 mt-1">
-                            {teacher.activeCommissions.map((commission) => (
-                              <Badge key={commission} variant="secondary" className="text-xs">
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {teacher.activeCommissions.map((commission, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
                                 {commission}
                               </Badge>
                             ))}
@@ -398,7 +531,7 @@ export default function CoordinatorTeachersPage() {
                           <BookOpen className="h-4 w-4" />
                           Estudiantes Asignados
                         </h4>
-                        <div className="grid gap-3 md:grid-cols-2">
+                        <div className="grid gap-3 md:grid-cols-1">
                           {teacher.assignedStudents.map((student) => (
                             <div 
                               key={student.studentId}

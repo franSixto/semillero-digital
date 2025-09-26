@@ -110,27 +110,20 @@ export function getRoleNavigation(role: UserRole) {
       return [
         ...baseItems,
         { label: 'Mis Cursos', href: '/courses', icon: '📚' },
-        { label: 'Mis Tareas', href: '/assignments', icon: '📝' },
         { label: 'Mi Progreso', href: '/progress', icon: '📈' }
       ];
     
     case 'teacher':
       return [
-        ...baseItems,
-        { label: 'Mis Estudiantes', href: '/teacher/students', icon: '👥' },
-        { label: 'Comisiones', href: '/teacher/commissions', icon: '📋' },
-        { label: 'Alertas', href: '/teacher/alerts', icon: '⚠️' },
-        { label: 'Reportes', href: '/teacher/reports', icon: '📊' }
+        ...baseItems
+        // Teacher-specific pages will be implemented later
       ];
     
     case 'coordinator':
       return [
         ...baseItems,
-        { label: 'Comisiones', href: '/coordinator/commissions', icon: '🏛️' },
         { label: 'Profesores', href: '/coordinator/teachers', icon: '👨‍🏫' },
-        { label: 'Estudiantes', href: '/coordinator/students', icon: '👥' },
-        { label: 'Métricas', href: '/coordinator/metrics', icon: '📈' },
-        { label: 'Asignaciones', href: '/coordinator/assignments', icon: '📋' }
+        { label: 'Estudiantes', href: '/coordinator/students', icon: '👥' }
       ];
     
     default:
