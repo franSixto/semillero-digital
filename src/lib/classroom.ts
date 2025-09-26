@@ -27,6 +27,14 @@ interface TokenResponse {
   token_type: string;
 }
 
+// OAuth2 User Profile from Google userinfo API
+interface OAuth2UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string;
+}
+
 // API Response types
 interface CoursesResponse {
   courses?: Course[];
@@ -438,7 +446,7 @@ export async function getCourseProgress(courseId: string, accessToken: string) {
 }
 
 // Get user profile information
-export async function getUserProfile(accessToken: string) {
+export async function getUserProfile(accessToken: string): Promise<{ success: boolean; data?: OAuth2UserProfile; error?: string }> {
   try {
     const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: {
@@ -1775,7 +1783,7 @@ export async function removeStudentFromTeacher(studentId: string, teacherId: str
 
 // Function to diagnose current user permissions and role in Google Classroom
 export async function diagnoseUserPermissions(accessToken: string): Promise<{ success: boolean; data?: {
-  userProfile: any;
+  userProfile: OAuth2UserProfile;
   userRole: 'student' | 'teacher' | 'admin' | 'unknown';
   coursesAsStudent: number;
   coursesAsTeacher: number;
