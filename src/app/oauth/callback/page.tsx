@@ -33,6 +33,7 @@ function OAuthCallbackContent() {
 
     const handleTokenExchange = async () => {
       try {
+        console.log('Starting token exchange with code:', code?.substring(0, 10) + '...');
         const tokenResponse = await exchangeCodeForToken(code);
         
         // Try multiple endpoints to get user info
