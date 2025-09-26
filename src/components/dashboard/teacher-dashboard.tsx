@@ -6,8 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/auth-context';
 import { getTeacherData, getTeacherDashboardStats } from '@/lib/classroom';
-import { TeacherData, TeacherDashboardStats } from '@/types/app';
+import { TeacherData, TeacherDashboardStats, StudentAssignment } from '@/types/app';
+import { EmailModal } from '@/components/teacher/email-modal';
 import Image from 'next/image';
+import Link from 'next/link';
+
+interface EmailData {
+  recipients: string[];
+  subject: string;
+  message: string;
+}
 
 export function TeacherDashboard() {
   const { accessToken } = useAuth();
@@ -15,6 +23,8 @@ export function TeacherDashboard() {
   const [stats, setStats] = useState<TeacherDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [selectedStudents, setSelectedStudents] = useState<StudentAssignment[]>([]);
 
   const loadTeacherData = async () => {
     if (!accessToken) return;
@@ -102,6 +112,18 @@ export function TeacherDashboard() {
       default:
         return { variant: 'secondary' as const, text: 'Desconocido', color: 'text-gray-600' };
     }
+  };
+
+  const handleEmailStudents = (students: StudentAssignment[]) => {
+    setSelectedStudents(students);
+    setEmailModalOpen(true);
+  };
+
+  const handleSendEmail = async (emailData: EmailData) => {
+    // Simulate email sending
+    console.log('Sending email:', emailData);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    alert(`Email enviado exitosamente a ${emailData.recipients.length} estudiante(s)`);
   };
 
 
@@ -215,13 +237,25 @@ export function TeacherDashboard() {
       {studentsAtRisk.length > 0 && (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-foreground">
-              <span>🚨</span>
-              Estudiantes en Riesgo ({studentsAtRisk.length})
-            </CardTitle>
-            <CardDescription>
-              Estos estudiantes requieren atención inmediata
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-foreground">
+                  <span>🚨</span>
+                  Estudiantes en Riesgo ({studentsAtRisk.length})
+                </CardTitle>
+                <CardDescription>
+                  Estos estudiantes requieren atención inmediata
+                </CardDescription>
+              </div>
+              <Button 
+                onClick={() => handleEmailStudents(studentsAtRisk)}
+                variant="destructive"
+                size="sm"
+              >
+                <span className="mr-2">✉️</span>
+                Contactar Todos
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2">
@@ -347,21 +381,53 @@ export function TeacherDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 md:grid-cols-3">
-            <Button variant="outline" className="justify-start">
-              <span className="mr-2">📝</span>
-              Revisar Tareas Pendientes
-            </Button>
-            <Button variant="outline" className="justify-start">
-              <span className="mr-2">📊</span>
-              Generar Reporte de Progreso
-            </Button>
-            <Button variant="outline" className="justify-start">
+            <Link href="/teacher/students">
+              <Button variant="outline" className="justify-start w-full">
+                <span className="mr-2">👥</span>
+                Gestionar Estudiantes
+              </Button>
+            </Link>
+            <Link href="/teacher/reports">
+              <Button variant="outline" className="justify-start w-full">
+                <span className="mr-2">📊</span>
+                Generar Reportes
+              </Button>
+            </Link>
+            <Button 
+              variant="outline" 
+              className="justify-start"
+              onClick={() => handleEmailStudents(studentsAtRisk)}
+              disabled={studentsAtRisk.length === 0}
+            >
               <span className="mr-2">✉️</span>
               Contactar Estudiantes en Riesgo
             </Button>
           </div>
+          
+          <div className="grid gap-3 md:grid-cols-2 mt-3">
+            <Link href="/teacher/commissions">
+              <Button variant="outline" className="justify-start w-full">
+                <span className="mr-2">📚</span>
+                Ver Comisiones
+              </Button>
+            </Link>
+            <Link href="/teacher/alerts">
+              <Button variant="outline" className="justify-start w-full">
+                <span className="mr-2">⚠️</span>
+                Centro de Alertas
+              </Button>
+            </Link>
+          </div>
         </CardContent>
       </Card>
+
+      {/* Email Modal */}
+      <EmailModal
+        isOpen={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        students={selectedStudents}
+        onSendEmail={handleSendEmail}
+      />
     </div>
   );
 }

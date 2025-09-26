@@ -115,8 +115,11 @@ export function getRoleNavigation(role: UserRole) {
     
     case 'teacher':
       return [
-        ...baseItems
-        // Teacher-specific pages will be implemented later
+        ...baseItems,
+        { label: 'Mis Estudiantes', href: '/teacher/students', icon: '👥' },
+        { label: 'Comisiones', href: '/teacher/commissions', icon: '📚' },
+        { label: 'Alertas', href: '/teacher/alerts', icon: '⚠️' },
+        { label: 'Reportes', href: '/teacher/reports', icon: '📊' }
       ];
     
     case 'coordinator':

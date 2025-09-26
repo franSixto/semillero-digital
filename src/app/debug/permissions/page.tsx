@@ -4,13 +4,21 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import Image from 'next/image';
 import { AppLayout } from '@/components/layout/app-layout';
 import { useAuth } from '@/contexts/auth-context';
 import { diagnoseUserPermissions } from '@/lib/classroom';
 import { AlertTriangle, CheckCircle, XCircle, User, Shield, Eye } from 'lucide-react';
 
+interface OAuth2UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string;
+}
+
 interface PermissionsDiagnostic {
-  userProfile: any;
+  userProfile: OAuth2UserProfile;
   userRole: 'student' | 'teacher' | 'admin' | 'unknown';
   coursesAsStudent: number;
   coursesAsTeacher: number;
@@ -125,16 +133,18 @@ export default function PermissionsDebugPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-4">
-                  {diagnostic.userProfile.photoUrl && (
-                    <img 
-                      src={diagnostic.userProfile.photoUrl} 
+                  {diagnostic.userProfile.picture && (
+                    <Image
+                      src={diagnostic.userProfile.picture} 
                       alt="Avatar" 
+                      width={64}
+                      height={64}
                       className="w-16 h-16 rounded-full"
                     />
                   )}
                   <div>
-                    <h3 className="text-lg font-semibold">{diagnostic.userProfile.name?.fullName || 'Sin nombre'}</h3>
-                    <p className="text-muted-foreground">{diagnostic.userProfile.emailAddress}</p>
+                    <h3 className="text-lg font-semibold">{diagnostic.userProfile.name || 'Sin nombre'}</h3>
+                    <p className="text-muted-foreground">{diagnostic.userProfile.email}</p>
                     <p className="text-sm text-muted-foreground">ID: {diagnostic.userProfile.id}</p>
                   </div>
                 </div>
