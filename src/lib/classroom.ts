@@ -566,6 +566,121 @@ export async function getStudentDashboardSummary(accessToken: string) {
   }
 }
 
+// Get all assignments for a student across all courses
+export async function getStudentAllAssignments(accessToken: string) {
+  try {
+    // Get user profile first
+    const userResult = await getUserProfile(accessToken);
+    if (!userResult.success || !userResult.data) {
+      return { success: false, error: 'Failed to get user profile' };
+    }
+
+    const user = userResult.data;
+
+    // Get courses
+    const courses = await getUserCourses(accessToken);
+    
+    const allAssignments: Array<{
+      assignment: Assignment;
+      course: Course;
+      submission?: StudentSubmission;
+      progress: {
+        isSubmitted: boolean;
+        isLate: boolean;
+        isGraded: boolean;
+        grade?: number;
+        maxPoints?: number;
+        status: 'pending' | 'submitted' | 'graded' | 'returned' | 'late';
+      };
+    }> = [];
+
+    // Get assignments for each course
+    for (const course of courses) {
+      try {
+        const assignments = await getCourseAssignments(course.id, accessToken);
+        const submissions = await getStudentSubmissions(course.id, user.id, accessToken);
+
+        // Create a map of submissions by courseWorkId for quick lookup
+        const submissionMap = new Map();
+        submissions.forEach(sub => {
+          submissionMap.set(sub.courseWorkId, sub);
+        });
+
+        // Process each assignment
+        assignments.forEach(assignment => {
+          const submission = submissionMap.get(assignment.id);
+          
+          // Determine status and progress
+          let status: 'pending' | 'submitted' | 'graded' | 'returned' | 'late' = 'pending';
+          let isSubmitted = false;
+          let isLate = false;
+          let isGraded = false;
+          let grade: number | undefined;
+
+          if (submission) {
+            isSubmitted = submission.state === 'TURNED_IN' || submission.state === 'RETURNED';
+            isLate = submission.late || false;
+            isGraded = submission.assignedGrade !== undefined;
+            grade = submission.assignedGrade;
+
+            if (submission.state === 'RETURNED') {
+              status = 'returned';
+            } else if (isGraded) {
+              status = 'graded';
+            } else if (isSubmitted) {
+              status = 'submitted';
+            } else if (isLate) {
+              status = 'late';
+            }
+          } else {
+            // Check if assignment is overdue
+            if (assignment.dueDate) {
+              const dueDate = new Date(assignment.dueDate);
+              const now = new Date();
+              if (now > dueDate) {
+                status = 'late';
+                isLate = true;
+              }
+            }
+          }
+
+          allAssignments.push({
+            assignment,
+            course,
+            submission,
+            progress: {
+              isSubmitted,
+              isLate,
+              isGraded,
+              grade,
+              maxPoints: assignment.maxPoints,
+              status
+            }
+          });
+        });
+      } catch (courseError) {
+        console.warn(`Error getting assignments for course ${course.id}:`, courseError);
+      }
+    }
+
+    // Sort by creation time (newest first)
+    allAssignments.sort((a, b) => 
+      new Date(b.assignment.creationTime).getTime() - new Date(a.assignment.creationTime).getTime()
+    );
+
+    return {
+      success: true,
+      data: allAssignments
+    };
+  } catch (error) {
+    console.error('Error getting student assignments:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error getting assignments'
+    };
+  }
+}
+
 // Legacy function for backward compatibility - will be replaced
 export async function getDashboardStats(accessToken: string) {
   try {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/app-layout';
@@ -20,6 +21,8 @@ interface CourseWithProgress {
 
 export default function ProgressPage() {
   const { accessToken, user } = useAuth();
+  const searchParams = useSearchParams();
+  const courseFilter = searchParams.get('course');
   const [courses, setCourses] = useState<CourseWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +36,13 @@ export default function ProgressPage() {
     try {
       const userCourses = await getUserCourses(accessToken);
       
+      // Filter courses if courseFilter is provided
+      const filteredCourses = courseFilter 
+        ? userCourses.filter(course => course.id === courseFilter)
+        : userCourses;
+      
       // Initialize courses with loading state
-      const coursesWithProgress: CourseWithProgress[] = userCourses.map(course => ({
+      const coursesWithProgress: CourseWithProgress[] = filteredCourses.map(course => ({
         course,
         progress: null,
         loading: true,
@@ -81,7 +89,7 @@ export default function ProgressPage() {
     } finally {
       setLoading(false);
     }
-  }, [accessToken, user]);
+  }, [accessToken, user, courseFilter]);
 
   useEffect(() => {
     if (accessToken && user) {
@@ -129,10 +137,28 @@ export default function ProgressPage() {
     <AppLayout>
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Mi Progreso Académico</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {courseFilter && courses.length > 0 
+              ? `Progreso en ${courses[0].course.name}`
+              : 'Mi Progreso Académico'
+            }
+          </h1>
           <p className="text-muted-foreground">
-            Seguimiento de tu rendimiento en todos los cursos
+            {courseFilter && courses.length > 0
+              ? `Seguimiento detallado de tu rendimiento en este curso`
+              : 'Seguimiento de tu rendimiento en todos los cursos'
+            }
           </p>
+          {courseFilter && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mt-2"
+              onClick={() => window.location.href = '/progress'}
+            >
+              ← Ver todos los cursos
+            </Button>
+          )}
         </div>
 
         <Accordion className="space-y-4">
