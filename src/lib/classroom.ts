@@ -1102,3 +1102,342 @@ export async function getCoordinatorDashboardStats(_accessToken: string): Promis
     };
   }
 }
+
+// =============================================================================
+// TEACHERS MANAGEMENT FUNCTIONS
+// =============================================================================
+
+interface AssignedStudent {
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  commissionName: string;
+  assignedDate: Date;
+  status: 'active' | 'inactive' | 'at_risk';
+}
+
+interface TeacherManagement {
+  teacherId: string;
+  teacherName: string;
+  teacherEmail: string;
+  teacherAvatar?: string;
+  assignedStudents: AssignedStudent[];
+  totalStudents: number;
+  activeCommissions: string[];
+  lastActivity: Date;
+}
+
+interface UnassignedStudent {
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  commissionName: string;
+  enrollmentDate: Date;
+}
+
+interface TeachersManagementData {
+  teachers: TeacherManagement[];
+  unassignedStudents: UnassignedStudent[];
+  totalTeachers: number;
+  totalStudents: number;
+  totalUnassigned: number;
+}
+
+// Helper function to get all teachers from all courses
+async function getAllTeachersFromCourses(accessToken: string) {
+  try {
+    const courses = await getUserCourses(accessToken);
+    const teachersMap = new Map();
+    
+    for (const course of courses) {
+      try {
+        const courseTeachers = await getCourseTeachers(course.id, accessToken);
+        
+        for (const teacher of courseTeachers) {
+          const teacherId = teacher.userId;
+          
+          if (!teachersMap.has(teacherId)) {
+            teachersMap.set(teacherId, {
+              teacherId,
+              teacherName: teacher.profile?.name?.fullName || 'Profesor',
+              teacherEmail: teacher.profile?.emailAddress || '',
+              teacherAvatar: teacher.profile?.photoUrl,
+              assignedStudents: [],
+              totalStudents: 0,
+              activeCommissions: [],
+              lastActivity: new Date()
+            });
+          }
+          
+          // Add course to teacher's active commissions
+          const teacherData = teachersMap.get(teacherId);
+          if (!teacherData.activeCommissions.includes(course.name)) {
+            teacherData.activeCommissions.push(course.name);
+          }
+        }
+      } catch (courseError) {
+        console.warn(`Error getting teachers for course ${course.id}:`, courseError);
+      }
+    }
+    
+    return Array.from(teachersMap.values());
+  } catch (error) {
+    console.error('Error getting all teachers:', error);
+    return [];
+  }
+}
+
+// Helper function to get all students from all courses
+async function getAllStudentsFromCourses(accessToken: string) {
+  try {
+    const courses = await getUserCourses(accessToken);
+    const studentsMap = new Map();
+    
+    for (const course of courses) {
+      try {
+        const courseStudents = await getCourseStudents(course.id, accessToken);
+        
+        for (const student of courseStudents) {
+          const studentId = student.userId;
+          
+          if (!studentsMap.has(studentId)) {
+            studentsMap.set(studentId, {
+              studentId,
+              studentName: student.profile?.name?.fullName || 'Estudiante',
+              studentEmail: student.profile?.emailAddress || '',
+              studentAvatar: student.profile?.photoUrl,
+              commissionName: course.name,
+              enrollmentDate: new Date(course.creationTime || Date.now()),
+              courseId: course.id,
+              status: 'active' // Default status, could be enhanced with progress analysis
+            });
+          }
+        }
+      } catch (courseError) {
+        console.warn(`Error getting students for course ${course.id}:`, courseError);
+      }
+    }
+    
+    return Array.from(studentsMap.values());
+  } catch (error) {
+    console.error('Error getting all students:', error);
+    return [];
+  }
+}
+
+// Helper function to determine student status based on their progress
+async function getStudentStatus(studentId: string, courseId: string, accessToken: string): Promise<'active' | 'inactive' | 'at_risk'> {
+  try {
+    const progressResult = await getStudentProgress(courseId, studentId, accessToken);
+    
+    if (progressResult.success && progressResult.data) {
+      const { completionPercentage, lateCount, averageGrade } = progressResult.data;
+      
+      // Determine status based on progress metrics
+      if (lateCount > 2 || averageGrade < 60) {
+        return 'at_risk';
+      } else if (completionPercentage < 30) {
+        return 'inactive';
+      } else {
+        return 'active';
+      }
+    }
+    
+    return 'active'; // Default status
+  } catch (error) {
+    console.warn(`Error determining status for student ${studentId}:`, error);
+    return 'active';
+  }
+}
+
+export async function getTeachersManagement(accessToken: string): Promise<{ success: boolean; data?: TeachersManagementData; error?: string }> {
+  try {
+    console.log('Loading teachers management data from Google Classroom API...');
+    
+    // Get all teachers and students from Google Classroom
+    const [allTeachers, allStudents] = await Promise.all([
+      getAllTeachersFromCourses(accessToken),
+      getAllStudentsFromCourses(accessToken)
+    ]);
+    
+    console.log(`Found ${allTeachers.length} teachers and ${allStudents.length} students`);
+    
+    // For now, we'll consider all students as "unassigned" since Google Classroom
+    // doesn't have a built-in teacher-student assignment system beyond course enrollment
+    // In a real implementation, you might store assignments in a separate database
+    
+    // Get enhanced student data with status
+    const enhancedStudents = await Promise.all(
+      allStudents.map(async (student) => {
+        const status = await getStudentStatus(student.studentId, student.courseId, accessToken);
+        return {
+          ...student,
+          status
+        };
+      })
+    );
+    
+    // For demonstration, we'll simulate some assignments
+    // In practice, you'd store these assignments in your own database
+    const teachersWithAssignments = allTeachers.map((teacher, index) => {
+      // Simulate some students assigned to teachers
+      const studentsPerTeacher = Math.floor(allStudents.length / allTeachers.length);
+      const startIndex = index * studentsPerTeacher;
+      const endIndex = index === allTeachers.length - 1 ? allStudents.length : startIndex + studentsPerTeacher;
+      
+      const assignedStudents = enhancedStudents.slice(startIndex, endIndex).map(student => ({
+        studentId: student.studentId,
+        studentName: student.studentName,
+        studentEmail: student.studentEmail,
+        commissionName: student.commissionName,
+        assignedDate: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000), // Random date within last 30 days
+        status: student.status
+      }));
+      
+      return {
+        ...teacher,
+        assignedStudents,
+        totalStudents: assignedStudents.length
+      };
+    });
+    
+    // Students that are not assigned to any teacher (for demo, we'll leave some unassigned)
+    const assignedStudentIds = new Set(
+      teachersWithAssignments.flatMap((teacher: TeacherManagement) => 
+        teacher.assignedStudents.map((student: AssignedStudent) => student.studentId)
+      )
+    );
+    
+    const unassignedStudents = enhancedStudents
+      .filter(student => !assignedStudentIds.has(student.studentId))
+      .map(student => ({
+        studentId: student.studentId,
+        studentName: student.studentName,
+        studentEmail: student.studentEmail,
+        commissionName: student.commissionName,
+        enrollmentDate: student.enrollmentDate
+      }));
+    
+    const data: TeachersManagementData = {
+      teachers: teachersWithAssignments,
+      unassignedStudents,
+      totalTeachers: allTeachers.length,
+      totalStudents: allStudents.length,
+      totalUnassigned: unassignedStudents.length
+    };
+    
+    console.log('Teachers management data loaded successfully:', {
+      teachers: data.totalTeachers,
+      students: data.totalStudents,
+      unassigned: data.totalUnassigned
+    });
+    
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Error loading teachers management data:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error loading teachers management data'
+    };
+  }
+}
+
+// Note: Google Classroom doesn't have a native teacher-student assignment system
+// beyond course enrollment. In a real implementation, you would store these
+// assignments in your own database (e.g., Firebase, PostgreSQL, etc.)
+
+export async function assignStudentToTeacher(studentId: string, teacherId: string, accessToken: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    console.log(`Assigning student ${studentId} to teacher ${teacherId}`);
+    
+    // In a real implementation, you would:
+    // 1. Validate that both student and teacher exist in Google Classroom
+    // 2. Store the assignment in your database
+    // 3. Optionally send notifications
+    
+    // Validate student and teacher exist by checking if they're in any courses
+    const courses = await getUserCourses(accessToken);
+    let studentExists = false;
+    let teacherExists = false;
+    
+    for (const course of courses) {
+      if (!studentExists || !teacherExists) {
+        try {
+          const [students, teachers] = await Promise.all([
+            getCourseStudents(course.id, accessToken),
+            getCourseTeachers(course.id, accessToken)
+          ]);
+          
+          if (!studentExists && students.some(s => s.userId === studentId)) {
+            studentExists = true;
+          }
+          
+          if (!teacherExists && teachers.some(t => t.userId === teacherId)) {
+            teacherExists = true;
+          }
+        } catch (courseError) {
+          console.warn(`Error checking course ${course.id}:`, courseError);
+        }
+      }
+    }
+    
+    if (!studentExists) {
+      return {
+        success: false,
+        error: 'Student not found in any course'
+      };
+    }
+    
+    if (!teacherExists) {
+      return {
+        success: false,
+        error: 'Teacher not found in any course'
+      };
+    }
+    
+    // Here you would store the assignment in your database
+    // For now, we'll just simulate success
+    console.log(`Successfully assigned student ${studentId} to teacher ${teacherId}`);
+    
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Error assigning student to teacher:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error assigning student to teacher'
+    };
+  }
+}
+
+export async function removeStudentFromTeacher(studentId: string, teacherId: string, accessToken: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 600));
+    
+    console.log(`Removing student ${studentId} from teacher ${teacherId}`);
+    
+    // In a real implementation, you would:
+    // 1. Validate the assignment exists in your database
+    // 2. Remove the assignment record
+    // 3. Optionally send notifications
+    
+    // For now, we'll just simulate success
+    console.log(`Successfully removed student ${studentId} from teacher ${teacherId}`);
+    
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Error removing student from teacher:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error removing student from teacher'
+    };
+  }
+}
