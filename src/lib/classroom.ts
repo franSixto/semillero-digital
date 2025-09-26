@@ -403,46 +403,170 @@ export async function getStudentProgress(
 /**
  * Gets progress overview for all students in a course (teacher view)
  */
-export async function getCourseProgress(
-  courseId: string,
-  accessToken: string
-) {
+export async function getCourseProgress(courseId: string, accessToken: string) {
   try {
-    const [assignments, students] = await Promise.all([
-      getCourseAssignments(courseId, accessToken),
-      getCourseStudents(courseId, accessToken)
-    ]);
+    const students = await getCourseStudents(courseId, accessToken);
+    const studentProgressItems = [];
 
-    const studentProgress = await Promise.all(
-      students.map(async (student) => {
-        const progress = await getStudentProgress(courseId, student.userId, accessToken);
-        return {
-          student: student.profile,
-          progress: progress.success ? progress.data : null
-        };
-      })
-    );
+    for (const student of students) {
+      const progressResult = await getStudentProgress(courseId, student.userId, accessToken);
+      if (progressResult.success && progressResult.data) {
+        studentProgressItems.push({
+          studentId: student.userId,
+          studentName: student.profile?.name?.fullName || 'Unknown',
+          studentEmail: student.profile?.emailAddress || '',
+          progress: progressResult.data
+        });
+      }
+    }
 
     return {
       success: true,
       data: {
         courseId,
-        totalAssignments: assignments.length,
         totalStudents: students.length,
-        studentProgress: studentProgress.filter(sp => sp.progress !== null)
+        studentProgress: studentProgressItems
       }
     };
   } catch (error) {
+    console.error('Error getting course progress:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
+      error: error instanceof Error ? error.message : 'Unknown error getting course progress'
     };
   }
 }
 
-/**
- * Gets dashboard statistics from classroom data
- */
+// Get user profile information
+export async function getUserProfile(accessToken: string) {
+  try {
+    const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get user profile: ${response.status}`);
+    }
+
+    const userData = await response.json();
+    return {
+      success: true,
+      data: {
+        id: userData.id,
+        email: userData.email,
+        name: userData.name,
+        picture: userData.picture
+      }
+    };
+  } catch (error) {
+    console.error('Error getting user profile:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error getting user profile'
+    };
+  }
+}
+
+// Get student dashboard summary with progress overview
+export async function getStudentDashboardSummary(accessToken: string) {
+  try {
+    // Get user profile first
+    const userResult = await getUserProfile(accessToken);
+    if (!userResult.success || !userResult.data) {
+      return { success: false, error: 'Failed to get user profile' };
+    }
+
+    const user = userResult.data;
+
+    // Get courses
+    const courses = await getUserCourses(accessToken);
+    
+    let totalPendingAssignments = 0;
+    let totalOverdueAssignments = 0;
+    let totalGrades = 0;
+    let gradeCount = 0;
+    const upcomingDeadlines: Array<{
+      assignmentTitle: string;
+      courseName: string;
+      courseId: string;
+      dueDate: string;
+      isOverdue: boolean;
+      alternateLink: string;
+    }> = [];
+
+    // Get progress for each course to calculate real metrics
+    for (const course of courses) {
+      try {
+        const progressResult = await getStudentProgress(course.id, user.id, accessToken);
+        if (progressResult.success && progressResult.data) {
+          const progress = progressResult.data;
+          
+          // Count pending assignments
+          const pendingCount = progress.submissions.filter(sub => 
+            sub.state === 'NEW' || sub.state === 'CREATED'
+          ).length;
+          
+          // Count overdue assignments
+          const overdueCount = progress.submissions.filter(sub => 
+            sub.late && sub.state !== 'TURNED_IN'
+          ).length;
+
+          totalPendingAssignments += pendingCount;
+          totalOverdueAssignments += overdueCount;
+
+          // Add to average grade calculation
+          if (progress.averageGrade > 0) {
+            totalGrades += progress.averageGrade;
+            gradeCount++;
+          }
+
+          // Add upcoming deadlines (pending assignments)
+          progress.submissions
+            .filter(sub => sub.state === 'NEW' || sub.state === 'CREATED')
+            .forEach(sub => {
+              upcomingDeadlines.push({
+                assignmentTitle: sub.assignmentTitle,
+                courseName: course.name,
+                courseId: course.id,
+                dueDate: sub.creationTime,
+                isOverdue: sub.late || false,
+                alternateLink: sub.alternateLink
+              });
+            });
+        }
+      } catch (courseError) {
+        console.warn(`Error getting progress for course ${course.id}:`, courseError);
+        // Continue with other courses even if one fails
+      }
+    }
+
+    // Sort upcoming deadlines by date
+    upcomingDeadlines.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+
+    return {
+      success: true,
+      data: {
+        totalCourses: courses.length,
+        totalPendingAssignments,
+        totalOverdueAssignments,
+        averageGrade: gradeCount > 0 ? Math.round(totalGrades / gradeCount) : 0,
+        courses: courses.slice(0, 6), // Show first 6 courses
+        upcomingDeadlines: upcomingDeadlines.slice(0, 5) // Limit to 5 most urgent
+      }
+    };
+  } catch (error) {
+    console.error('Error getting student dashboard summary:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error getting dashboard summary'
+    };
+  }
+}
+
+// Legacy function for backward compatibility - will be replaced
 export async function getDashboardStats(accessToken: string) {
   try {
     const courses = await getUserCourses(accessToken);

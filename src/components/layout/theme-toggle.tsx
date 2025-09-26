@@ -4,14 +4,18 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'system' | null;
-    if (savedTheme) {
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark')) {
       setTheme(savedTheme);
+    } else {
+      // Default to system preference
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      setTheme(systemTheme);
     }
   }, []);
 
@@ -20,14 +24,7 @@ export function ThemeToggle() {
 
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
-
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      root.classList.add(systemTheme);
-    } else {
-      root.classList.add(theme);
-    }
-
+    root.classList.add(theme);
     localStorage.setItem('theme', theme);
   }, [theme, mounted]);
 
@@ -36,26 +33,7 @@ export function ThemeToggle() {
   }
 
   const toggleTheme = () => {
-    if (theme === 'light') {
-      setTheme('dark');
-    } else if (theme === 'dark') {
-      setTheme('system');
-    } else {
-      setTheme('light');
-    }
-  };
-
-  const getIcon = () => {
-    switch (theme) {
-      case 'light':
-        return '☀️';
-      case 'dark':
-        return '🌙';
-      case 'system':
-        return '💻';
-      default:
-        return '🌙';
-    }
+    setTheme(theme === 'light' ? 'dark' : 'light');
   };
 
   return (
@@ -63,9 +41,9 @@ export function ThemeToggle() {
       variant="ghost"
       size="sm"
       onClick={toggleTheme}
-      title={`Cambiar tema (actual: ${theme})`}
+      title={`Cambiar a tema ${theme === 'light' ? 'oscuro' : 'claro'}`}
     >
-      {getIcon()}
+      {theme === 'light' ? '🌙' : '☀️'}
     </Button>
   );
 }
