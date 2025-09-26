@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { exchangeCodeForToken } from '@/lib/classroom';
 import { useAuth } from '@/contexts/auth-context';
 
-export default function OAuthCallbackPage() {
+// Component that uses useSearchParams
+function OAuthCallbackContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { login } = useAuth();
@@ -154,5 +155,28 @@ export default function OAuthCallbackPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// Loading component for Suspense fallback
+function OAuthCallbackLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      <Card className="max-w-md mx-auto shadow-lg">
+        <CardContent className="text-center py-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Cargando...</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function OAuthCallbackPage() {
+  return (
+    <Suspense fallback={<OAuthCallbackLoading />}>
+      <OAuthCallbackContent />
+    </Suspense>
   );
 }
