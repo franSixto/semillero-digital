@@ -21,6 +21,36 @@ Plataforma educativa integrada con Google Classroom para potenciar el aprendizaj
 - **Autenticación**: Google OAuth 2.0
 - **API**: Google Classroom API
 
+## Configuración de Variables de Entorno
+
+Para configurar la aplicación, necesitas crear un archivo `.env.local` en la raíz del proyecto con las siguientes variables:
+
+```bash
+# URL base de la aplicación
+NEXT_PUBLIC_BASE_URL=http://localhost:3000  # Para desarrollo
+# NEXT_PUBLIC_BASE_URL=https://tu-dominio.com  # Para producción
+
+# Google OAuth Configuration
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=tu-google-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=tu-google-client-secret
+
+# URL de redirección OAuth
+NEXT_PUBLIC_REDIRECT_URI=http://localhost:3000/oauth/callback  # Para desarrollo
+# NEXT_PUBLIC_REDIRECT_URI=https://tu-dominio.com/oauth/callback  # Para producción
+```
+
+### Configuración de Google Cloud Console
+
+1. Ve a [Google Cloud Console](https://console.cloud.google.com/)
+2. Crea un nuevo proyecto o selecciona uno existente
+3. Habilita la **Google Classroom API**
+4. Ve a **Credenciales** > **Crear credenciales** > **ID de cliente OAuth 2.0**
+5. Configura las URLs de redirección autorizadas:
+   - Desarrollo: `http://localhost:3000/oauth/callback`
+   - Producción: `https://tu-dominio.com/oauth/callback`
+
+**⚠️ Importante**: Nunca subas el archivo `.env.local` al repositorio. El `GOOGLE_CLIENT_SECRET` debe mantenerse privado.
+
 ## Estructura del Proyecto
 
 ```

@@ -1,14 +1,151 @@
 // Application-specific types
 
+// Role system types
+export type UserRole = 'student' | 'teacher' | 'coordinator';
+
 export interface User {
   id: string;
   email: string;
   name: string;
   avatar?: string;
-  role: 'teacher' | 'student' | 'admin';
+  role: UserRole;
   isVerified: boolean;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Role-specific data structures
+export interface StudentData {
+  courses: AppCourse[];
+  assignments: AppAssignment[];
+  progress: StudentProgress[];
+  upcomingDeadlines: AppAssignment[];
+}
+
+export interface TeacherData {
+  assignedStudents: StudentAssignment[];
+  courses: AppCourse[];
+  commissions: Commission[];
+  studentProgress: TeacherStudentProgress[];
+}
+
+export interface CoordinatorData {
+  allCommissions: Commission[];
+  teacherAssignments: TeacherAssignment[];
+  overallMetrics: CoordinatorMetrics;
+  alerts: StudentAlert[];
+}
+
+// Commission and assignment structures
+export interface Commission {
+  id: string;
+  name: string;
+  description?: string;
+  teacherId: string;
+  teacherName: string;
+  students: CommissionStudent[];
+  metrics: CommissionMetrics;
+  createdAt: Date;
+  isActive: boolean;
+}
+
+export interface CommissionStudent {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  enrollmentDate: Date;
+  progress: StudentProgress;
+  status: 'active' | 'at_risk' | 'behind' | 'excellent';
+  lastActivity: Date;
+}
+
+export interface StudentAssignment {
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  studentAvatar?: string;
+  commissionId: string;
+  commissionName: string;
+  assignedDate: Date;
+  progress: StudentProgress;
+  status: 'active' | 'at_risk' | 'behind' | 'excellent';
+  alerts: StudentAlert[];
+}
+
+export interface TeacherAssignment {
+  teacherId: string;
+  teacherName: string;
+  teacherEmail: string;
+  commissions: Commission[];
+  totalStudents: number;
+  activeStudents: number;
+  studentsAtRisk: number;
+  assignedDate: Date;
+}
+
+// Progress and metrics for different roles
+export interface TeacherStudentProgress {
+  student: CommissionStudent;
+  courses: CourseProgress[];
+  overallProgress: StudentProgress;
+  alerts: StudentAlert[];
+  lastInteraction: Date;
+}
+
+export interface CommissionMetrics {
+  totalStudents: number;
+  activeStudents: number;
+  studentsAtRisk: number;
+  studentsBehind: number;
+  averageProgress: number;
+  averageGrade: number;
+  completionRate: number;
+  lastUpdated: Date;
+}
+
+export interface CoordinatorMetrics {
+  totalCommissions: number;
+  totalTeachers: number;
+  totalStudents: number;
+  studentsAtRisk: number;
+  overallCompletionRate: number;
+  averageGrade: number;
+  activeCommissions: number;
+  alertsCount: number;
+}
+
+// Alert system
+export interface StudentAlert {
+  id: string;
+  studentId: string;
+  studentName: string;
+  type: 'behind_schedule' | 'missing_assignments' | 'low_grades' | 'inactive' | 'at_risk';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  message: string;
+  courseId?: string;
+  courseName?: string;
+  assignmentId?: string;
+  assignmentName?: string;
+  createdAt: Date;
+  isRead: boolean;
+  actionRequired: boolean;
+}
+
+// Assignment type for role system
+export interface AppAssignment {
+  id: string;
+  title: string;
+  description?: string;
+  courseId: string;
+  courseName: string;
+  dueDate?: Date;
+  maxPoints?: number;
+  status: 'pending' | 'submitted' | 'graded' | 'late' | 'returned';
+  submissionDate?: Date;
+  grade?: number;
+  isLate: boolean;
+  alternateLink: string;
 }
 
 export interface AppCourse {
@@ -42,6 +179,37 @@ export interface Activity {
   isRead: boolean;
 }
 
+// Dashboard stats for different roles
+export interface StudentDashboardStats {
+  totalCourses: number;
+  totalAssignments: number;
+  pendingAssignments: number;
+  overdueAssignments: number;
+  averageGrade: number;
+  upcomingDeadlines: AppAssignment[];
+}
+
+export interface TeacherDashboardStats {
+  totalStudents: number;
+  totalCommissions: number;
+  studentsAtRisk: number;
+  studentsBehind: number;
+  averageClassProgress: number;
+  pendingReviews: number;
+  recentAlerts: StudentAlert[];
+}
+
+export interface CoordinatorDashboardStats {
+  totalCommissions: number;
+  totalTeachers: number;
+  totalStudents: number;
+  studentsAtRisk: number;
+  overallProgress: number;
+  activeAlerts: number;
+  commissionsNeedingAttention: Commission[];
+}
+
+// Legacy type for backward compatibility
 export interface DashboardStats {
   totalCourses: number;
   totalStudents: number;

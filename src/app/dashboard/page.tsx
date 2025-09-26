@@ -5,7 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { getStudentDashboardSummary } from '@/lib/classroom';
 import { useAuth } from '@/contexts/auth-context';
+import { useRole } from '@/contexts/role-context';
 import { AppLayout } from '@/components/layout/app-layout';
+import { TeacherDashboard } from '@/components/dashboard/teacher-dashboard';
+import { CoordinatorDashboard } from '@/components/dashboard/coordinator-dashboard';
 import { Course } from '@/types/classroom';
 
 interface StudentDashboardData {
@@ -26,6 +29,7 @@ interface StudentDashboardData {
 
 export default function DashboardPage() {
   const { accessToken, isLoading: authLoading } = useAuth();
+  const { currentRole } = useRole();
   const [dashboardData, setDashboardData] = useState<StudentDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,16 +70,36 @@ export default function DashboardPage() {
     }
   }, [accessToken, authLoading]);
 
+  // Show role-specific dashboards
+  if (currentRole === 'teacher') {
+    return (
+      <AppLayout>
+        <div className="container mx-auto px-4 py-8">
+          <TeacherDashboard />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (currentRole === 'coordinator') {
+    return (
+      <AppLayout>
+        <div className="container mx-auto px-4 py-8">
+          <CoordinatorDashboard />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Student dashboard (default)
   // Loading state (including auth loading)
   if (loading || authLoading) {
     return (
       <AppLayout>
         <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-              <p>{authLoading ? 'Verificando autenticación...' : 'Cargando datos del dashboard...'}</p>
-            </div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>Cargando tu dashboard de estudiante...</p>
           </div>
         </div>
       </AppLayout>

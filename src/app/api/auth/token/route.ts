@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
         client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
         code,
         grant_type: 'authorization_code',
-        redirect_uri: 'http://localhost:5001/oauth/callback',
+        redirect_uri: process.env.NEXT_PUBLIC_REDIRECT_URI || `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/oauth/callback`,
       }),
     });
 

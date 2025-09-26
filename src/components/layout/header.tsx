@@ -5,11 +5,15 @@ import { ThemeToggle } from './theme-toggle';
 import { MobileMenu } from './mobile-menu';
 import { Logo } from './logo';
 import { useAuth } from '@/contexts/auth-context';
+import { useRole, getRoleNavigation } from '@/contexts/role-context';
+import { RoleSwitch } from '@/components/ui/role-switch';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 
 export function Header() {
   const { user, logout } = useAuth();
+  const { currentRole } = useRole();
+  const navigationItems = getRoleNavigation(currentRole);
   
   return (
     <header className="sticky flex flex-row justify-center top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -19,44 +23,29 @@ export function Header() {
           <Logo showText={true} />
         </div>
 
-        {/* Desktop Navigation */}
+        {/* Desktop Navigation - Role-based */}
         <nav className="hidden md:flex items-center gap-6 text-sm">
-          <Link
-            href="/dashboard"
-            className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium"
-          >
-            Dashboard
-          </Link>
-          <Link
-            href="/courses"
-            className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium"
-          >
-            Cursos
-          </Link>
-          <Link
-            href="/assignments"
-            className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium"
-          >
-            Tareas
-          </Link>
-          <Link
-            href="/progress"
-            className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium"
-          >
-            Mi Progreso
-          </Link>
-          <Link
-            href="/grades"
-            className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium"
-          >
-            Calificaciones
-          </Link>
+          {navigationItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium flex items-center gap-1"
+            >
+              <span className="text-xs">{item.icon}</span>
+              {item.label}
+            </Link>
+          ))}
         </nav>
         
         {/* Right Side - Desktop */}
         <div className="flex flex-1 items-center justify-end space-x-3">
           {/* Desktop User Info */}
           <div className="hidden md:flex items-center gap-3">
+            {/* Role Switch */}
+            <RoleSwitch />
+            
+            <div className="w-px h-6 bg-border"></div>
+            
             <ThemeToggle />
             {user && (
               <>

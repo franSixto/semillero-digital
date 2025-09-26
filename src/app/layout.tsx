@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Raleway } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/auth-context";
+import { RoleProvider } from "@/contexts/role-context";
 
 const raleway = Raleway({
   subsets: ["latin"],
@@ -24,7 +25,9 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning className={raleway.variable}>
       <body className="font-sans antialiased">
         <AuthProvider>
-          {children}
+          <RoleProvider>
+            {children}
+          </RoleProvider>
         </AuthProvider>
       </body>
     </html>

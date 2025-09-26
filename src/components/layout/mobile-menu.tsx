@@ -5,10 +5,14 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
+import { useRole, getRoleNavigation } from '@/contexts/role-context';
+import { RoleSwitchCompact } from '@/components/ui/role-switch';
 
 export function MobileMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { currentRole } = useRole();
+  const navigationItems = getRoleNavigation(currentRole);
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
@@ -48,51 +52,27 @@ export function MobileMenu() {
           {/* Menu Panel */}
           <div className="fixed top-14 left-0 right-0 bg-background border-b border-border z-50 shadow-lg">
             <div className="container mx-auto px-4 py-4">
+              {/* Role Switch Section */}
+              <div className="mb-4 pb-4 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">Rol actual:</span>
+                  <RoleSwitchCompact />
+                </div>
+              </div>
+
+              {/* Navigation - Role-based */}
               <nav className="flex flex-col space-y-4">
-                <Link
-                  href="/dashboard"
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors"
-                  onClick={closeMenu}
-                >
-                  <span className="text-lg">📊</span>
-                  <span className="font-medium">Dashboard</span>
-                </Link>
-                
-                <Link
-                  href="/courses"
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors"
-                  onClick={closeMenu}
-                >
-                  <span className="text-lg">📚</span>
-                  <span className="font-medium">Cursos</span>
-                </Link>
-                
-                <Link
-                  href="/assignments"
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors"
-                  onClick={closeMenu}
-                >
-                  <span className="text-lg">📝</span>
-                  <span className="font-medium">Tareas</span>
-                </Link>
-                
-                <Link
-                  href="/progress"
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors"
-                  onClick={closeMenu}
-                >
-                  <span className="text-lg">📈</span>
-                  <span className="font-medium">Mi Progreso</span>
-                </Link>
-                
-                <Link
-                  href="/grades"
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors"
-                  onClick={closeMenu}
-                >
-                  <span className="text-lg">🎯</span>
-                  <span className="font-medium">Calificaciones</span>
-                </Link>
+                {navigationItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors"
+                    onClick={closeMenu}
+                  >
+                    <span className="text-lg">{item.icon}</span>
+                    <span className="font-medium">{item.label}</span>
+                  </Link>
+                ))}
 
                 {/* User Section */}
                 {user && (

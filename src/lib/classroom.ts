@@ -59,7 +59,7 @@ interface SubmissionsResponse {
 export function getAuthorizationUrl(): string {
   const params = new URLSearchParams({
     client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
-    redirect_uri: `http://localhost:5001/oauth/callback`,
+    redirect_uri: process.env.NEXT_PUBLIC_REDIRECT_URI || `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/oauth/callback`,
     scope: SCOPES,
     response_type: 'code',
     access_type: 'offline',
@@ -769,6 +769,336 @@ export async function authenticateAndGetClassroomData(accessToken: string) {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
+// =============================================================================
+// ROLE-BASED MOCK DATA FUNCTIONS
+// =============================================================================
+
+import { 
+  TeacherData, 
+  CoordinatorData, 
+  TeacherDashboardStats,
+  CoordinatorDashboardStats
+} from '@/types/app';
+
+// Mock data generators for development
+export async function getTeacherData(_accessToken: string): Promise<{ success: boolean; data?: TeacherData; error?: string }> {
+  try {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    const mockTeacherData: TeacherData = {
+      assignedStudents: [
+        {
+          studentId: '1',
+          studentName: 'Ana García',
+          studentEmail: 'ana.garcia@estudiante.com',
+          studentAvatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150',
+          commissionId: 'comm-1',
+          commissionName: 'Desarrollo Web Frontend',
+          assignedDate: new Date('2024-01-15'),
+          progress: {
+            totalAssignments: 12,
+            submittedCount: 8,
+            gradedCount: 6,
+            lateCount: 2,
+            averageGrade: 85,
+            completionPercentage: 67,
+            submissions: []
+          },
+          status: 'active',
+          alerts: [
+            {
+              id: 'alert-1',
+              studentId: '1',
+              studentName: 'Ana García',
+              type: 'missing_assignments',
+              severity: 'medium',
+              message: 'Tiene 2 tareas pendientes de entrega',
+              courseId: 'course-1',
+              courseName: 'React Fundamentals',
+              createdAt: new Date(),
+              isRead: false,
+              actionRequired: true
+            }
+          ]
+        },
+        {
+          studentId: '2',
+          studentName: 'Carlos Mendoza',
+          studentEmail: 'carlos.mendoza@estudiante.com',
+          commissionId: 'comm-1',
+          commissionName: 'Desarrollo Web Frontend',
+          assignedDate: new Date('2024-01-15'),
+          progress: {
+            totalAssignments: 12,
+            submittedCount: 12,
+            gradedCount: 10,
+            lateCount: 0,
+            averageGrade: 92,
+            completionPercentage: 100,
+            submissions: []
+          },
+          status: 'excellent',
+          alerts: []
+        },
+        {
+          studentId: '3',
+          studentName: 'María López',
+          studentEmail: 'maria.lopez@estudiante.com',
+          commissionId: 'comm-2',
+          commissionName: 'Backend Development',
+          assignedDate: new Date('2024-02-01'),
+          progress: {
+            totalAssignments: 10,
+            submittedCount: 4,
+            gradedCount: 3,
+            lateCount: 3,
+            averageGrade: 65,
+            completionPercentage: 40,
+            submissions: []
+          },
+          status: 'at_risk',
+          alerts: [
+            {
+              id: 'alert-2',
+              studentId: '3',
+              studentName: 'María López',
+              type: 'behind_schedule',
+              severity: 'high',
+              message: 'Está muy atrasada en las entregas',
+              courseId: 'course-2',
+              courseName: 'Node.js Basics',
+              createdAt: new Date(),
+              isRead: false,
+              actionRequired: true
+            }
+          ]
+        }
+      ],
+      courses: [], // Will be populated with real data in production
+      commissions: [
+        {
+          id: 'comm-1',
+          name: 'Desarrollo Web Frontend',
+          description: 'Comisión enfocada en tecnologías frontend modernas',
+          teacherId: 'teacher-1',
+          teacherName: 'Prof. Juan Pérez',
+          students: [],
+          metrics: {
+            totalStudents: 15,
+            activeStudents: 12,
+            studentsAtRisk: 2,
+            studentsBehind: 1,
+            averageProgress: 78,
+            averageGrade: 82,
+            completionRate: 0.78,
+            lastUpdated: new Date()
+          },
+          createdAt: new Date('2024-01-01'),
+          isActive: true
+        }
+      ],
+      studentProgress: []
+    };
+
+    return {
+      success: true,
+      data: mockTeacherData
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error loading teacher data'
+    };
+  }
+}
+
+export async function getCoordinatorData(accessToken: string): Promise<{ success: boolean; data?: CoordinatorData; error?: string }> {
+  try {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1200));
+
+    const mockCoordinatorData: CoordinatorData = {
+      allCommissions: [
+        {
+          id: 'comm-1',
+          name: 'Desarrollo Web Frontend',
+          description: 'Comisión enfocada en tecnologías frontend modernas',
+          teacherId: 'teacher-1',
+          teacherName: 'Prof. Juan Pérez',
+          students: [],
+          metrics: {
+            totalStudents: 15,
+            activeStudents: 12,
+            studentsAtRisk: 2,
+            studentsBehind: 1,
+            averageProgress: 78,
+            averageGrade: 82,
+            completionRate: 0.78,
+            lastUpdated: new Date()
+          },
+          createdAt: new Date('2024-01-01'),
+          isActive: true
+        },
+        {
+          id: 'comm-2',
+          name: 'Backend Development',
+          description: 'Desarrollo de APIs y servicios backend',
+          teacherId: 'teacher-2',
+          teacherName: 'Prof. María González',
+          students: [],
+          metrics: {
+            totalStudents: 12,
+            activeStudents: 10,
+            studentsAtRisk: 3,
+            studentsBehind: 2,
+            averageProgress: 65,
+            averageGrade: 75,
+            completionRate: 0.65,
+            lastUpdated: new Date()
+          },
+          createdAt: new Date('2024-01-15'),
+          isActive: true
+        }
+      ],
+      teacherAssignments: [
+        {
+          teacherId: 'teacher-1',
+          teacherName: 'Prof. Juan Pérez',
+          teacherEmail: 'juan.perez@semillero.edu',
+          commissions: [],
+          totalStudents: 15,
+          activeStudents: 12,
+          studentsAtRisk: 2,
+          assignedDate: new Date('2024-01-01')
+        }
+      ],
+      overallMetrics: {
+        totalCommissions: 2,
+        totalTeachers: 2,
+        totalStudents: 27,
+        studentsAtRisk: 5,
+        overallCompletionRate: 0.72,
+        averageGrade: 78.5,
+        activeCommissions: 2,
+        alertsCount: 5
+      },
+      alerts: [
+        {
+          id: 'alert-coord-1',
+          studentId: '3',
+          studentName: 'María López',
+          type: 'behind_schedule',
+          severity: 'critical',
+          message: 'Estudiante con riesgo alto de deserción',
+          courseId: 'course-2',
+          courseName: 'Node.js Basics',
+          createdAt: new Date(),
+          isRead: false,
+          actionRequired: true
+        }
+      ]
+    };
+
+    return {
+      success: true,
+      data: mockCoordinatorData
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error loading coordinator data'
+    };
+  }
+}
+
+export async function getTeacherDashboardStats(_accessToken: string): Promise<{ success: boolean; data?: TeacherDashboardStats; error?: string }> {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    const stats: TeacherDashboardStats = {
+      totalStudents: 15,
+      totalCommissions: 2,
+      studentsAtRisk: 3,
+      studentsBehind: 2,
+      averageClassProgress: 78,
+      pendingReviews: 8,
+      recentAlerts: [
+        {
+          id: 'alert-recent-1',
+          studentId: '3',
+          studentName: 'María López',
+          type: 'behind_schedule',
+          severity: 'high',
+          message: 'Está muy atrasada en las entregas',
+          courseId: 'course-2',
+          courseName: 'Node.js Basics',
+          createdAt: new Date(),
+          isRead: false,
+          actionRequired: true
+        }
+      ]
+    };
+
+    return {
+      success: true,
+      data: stats
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error loading teacher stats'
+    };
+  }
+}
+
+export async function getCoordinatorDashboardStats(_accessToken: string): Promise<{ success: boolean; data?: CoordinatorDashboardStats; error?: string }> {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 900));
+
+    const stats: CoordinatorDashboardStats = {
+      totalCommissions: 2,
+      totalTeachers: 2,
+      totalStudents: 27,
+      studentsAtRisk: 5,
+      overallProgress: 72,
+      activeAlerts: 5,
+      commissionsNeedingAttention: [
+        {
+          id: 'comm-2',
+          name: 'Backend Development',
+          description: 'Desarrollo de APIs y servicios backend',
+          teacherId: 'teacher-2',
+          teacherName: 'Prof. María González',
+          students: [],
+          metrics: {
+            totalStudents: 12,
+            activeStudents: 10,
+            studentsAtRisk: 3,
+            studentsBehind: 2,
+            averageProgress: 65,
+            averageGrade: 75,
+            completionRate: 0.65,
+            lastUpdated: new Date()
+          },
+          createdAt: new Date('2024-01-15'),
+          isActive: true
+        }
+      ]
+    };
+
+    return {
+      success: true,
+      data: stats
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error loading coordinator stats'
     };
   }
 }
